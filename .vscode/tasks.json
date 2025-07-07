@@ -1,0 +1,57 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    /* ───────────────────────────── configure ─────────────────────────────── */
+    {
+      "label": "CMake: configure",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-S", "${workspaceFolder}",
+        "-B", "${workspaceFolder}/build",
+        "-DCMAKE_BUILD_TYPE=Debug"          // change to Release if you like
+      ],
+      "problemMatcher": [],
+      "group": "build"
+    },
+
+    /* ─────────────────────────────── build ──────────────────────────────── */
+    {
+      "label": "CMake: build",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build", "${workspaceFolder}/build",
+        "--config", "Debug",               // ignored on single-config generators
+        "--", "-j", "6"                    // -j <n> = parallel compile
+      ],
+      "problemMatcher": ["$gcc"],
+      "group": { "kind": "build", "isDefault": true },   // ⇧⌘B / Ctrl-Shift-B
+      "dependsOn": "CMake: configure"
+    },
+
+    /* ────────────────────────────── install ─────────────────────────────── */
+    {
+      "label": "CMake: install",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--install", "${workspaceFolder}/build"
+      ],
+      "problemMatcher": [],
+      "dependsOn": "CMake: build"
+    },
+
+    /* ─────────────────────────────── clean ──────────────────────────────── */
+    {
+      "label": "CMake: clean",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build", "${workspaceFolder}/build",
+        "--target", "clean"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

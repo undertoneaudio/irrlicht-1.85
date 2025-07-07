@@ -1,0 +1,25 @@
+{
+  // ────────────────────────────────
+  //  VS Code launch configuration
+  // ────────────────────────────────
+  "version": "0.2.0",
+  "configurations": [
+
+    /*------------------------------------------------------------
+      1) CodeLLDB extension                               (macOS)
+      ------------------------------------------------------------
+      ▶  Install the “CodeLLDB” extension (vadimcn.vscode-lldb).
+      ▶  Nothing else is required – it talks to the system LLDB
+         directly, no lldb-mi needed.
+     ------------------------------------------------------------*/
+    {
+        "name": "05.UserInterface",
+        "type": "lldb",
+        "request": "launch",
+        "program": "${workspaceFolder}/build/examples/05.UserInterface/05.UserInterface",
+        "cwd": "${workspaceFolder}",
+        "terminal": "integrated",
+        "stopOnEntry": false
+    },
+  ]
+}
