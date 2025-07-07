@@ -13,6 +13,31 @@
 #import <Carbon/Carbon.h>
 #endif
 
+// -----------------------------------------------------------------------------
+//  macOS helper: bring the Irrlicht window to front and return Retina scale
+// -----------------------------------------------------------------------------
+
+float gRetinaScale = 0.5f;
+
+static float irrBringWindowToFrontAndGetScale(NSWindow* win)
+{
+    if (!win) return 1.0f;
+
+    // Make the app a foreground app
+    ProcessSerialNumber psn = { 0, kCurrentProcess };
+    TransformProcessType(&psn, kProcessTransformToForegroundApplication);
+    SetFrontProcess(&psn);
+
+    // Order window and make it key
+    [win makeKeyWindow];
+    [win makeKeyAndOrderFront:nil];
+    [win orderFrontRegardless];
+
+    gRetinaScale = win.backingScaleFactor;
+    // Retina backing scale
+    return win.backingScaleFactor ?: 1.0f;
+}
+
 #include "CIrrDeviceMacOSX.h"
 #include "IEventReceiver.h"
 #include "irrList.h"
@@ -25,6 +50,9 @@
 #include "COSOperator.h"
 #include "CColorConverter.h"
 #include "irrlicht.h"
+
+#include <iostream>
+using namespace std;
 
 
 #import <wchar.h>
@@ -883,6 +911,23 @@ bool CIrrDeviceMacOSX::createWindow()
 		}
 	}
 
+    // Existing code sets up 'Window' …
+
+// --- NEW BLOCK -------------------------------------------------------------
+#ifdef __APPLE__
+    const float backingScale = irrBringWindowToFrontAndGetScale(Window);
+    if (backingScale > 1.0f)
+    {
+        // Inform the video driver so it uses the real framebuffer size
+        // Driver->OnResize(
+        //     core::dimension2d<u32>(
+        //         static_cast<u32>(Width  * backingScale),
+        //         static_cast<u32>(Height * backingScale)));
+    }
+#endif
+// ---------------------------------------------------------------------------
+
+
 	return (result);
 }
 
@@ -1239,8 +1284,8 @@ void CIrrDeviceMacOSX::postMouseEvent(void *event,irr::SEvent &ievent)
 
 	if (Window != NULL)
 	{
-		ievent.MouseInput.X = (int)[(NSEvent *)event locationInWindow].x;
-		ievent.MouseInput.Y = DeviceHeight - (int)[(NSEvent *)event locationInWindow].y;
+		ievent.MouseInput.X = (int)( [(NSEvent *)event locationInWindow].x * gRetinaScale );
+		ievent.MouseInput.Y = DeviceHeight - (int)( [(NSEvent *)event locationInWindow].y * gRetinaScale );
 
 		if (ievent.MouseInput.Y < 0)
 			post = false;
@@ -1251,8 +1296,8 @@ void CIrrDeviceMacOSX::postMouseEvent(void *event,irr::SEvent &ievent)
 		CGPoint point = CGEventGetLocation(ourEvent);
 		CFRelease(ourEvent);
 
-		ievent.MouseInput.X = (int)point.x;
-		ievent.MouseInput.Y = (int)point.y;
+		ievent.MouseInput.X = (int)( point.x * gRetinaScale );
+		ievent.MouseInput.Y = (int)( point.y * gRetinaScale );
 
 		if (ievent.MouseInput.Y < 0)
 			post = false;
@@ -1279,8 +1324,8 @@ void CIrrDeviceMacOSX::storeMouseLocation()
 		NSPoint	p;
 		p = [NSEvent mouseLocation];
 		p = [Window convertScreenToBase:p];
-		x = (int)p.x;
-		y = DeviceHeight - (int)p.y;
+		x = (int)( p.x * gRetinaScale );
+		y = DeviceHeight - (int)( p.y * gRetinaScale );
 	}
 	else
 	{
@@ -1288,8 +1333,8 @@ void CIrrDeviceMacOSX::storeMouseLocation()
 		CGPoint point = CGEventGetLocation(ourEvent);
 		CFRelease(ourEvent);
 
-		x = (int)point.x;
-		y = (int)point.y;
+		x = (int)( point.x * gRetinaScale );
+		y = (int)( point.y * gRetinaScale );
 
 		const core::position2di& curr = ((CCursorControl *)CursorControl)->getPosition();
 		if (curr.X != x || curr.Y != y)
@@ -1316,8 +1361,8 @@ void CIrrDeviceMacOSX::setMouseLocation(int x,int y)
 	if (Window != NULL)
 	{
 		// Irrlicht window exists
-		p.x = (float) x;
-		p.y = (float) (DeviceHeight - y);
+		p.x = (float)( x / gRetinaScale );
+		p.y = (float)( (DeviceHeight - y) / gRetinaScale );
 		p = [Window convertBaseToScreen:p];
 		p.y = ScreenHeight - p.y;
 	}

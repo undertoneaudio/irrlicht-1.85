@@ -19,6 +19,7 @@
         "program": "${workspaceFolder}/build/examples/05.UserInterface/05.UserInterface",
         "cwd": "${workspaceFolder}",
         "terminal": "integrated",
+        "preLaunchTask": "CMake: build",
         "stopOnEntry": false
     },
   ]
