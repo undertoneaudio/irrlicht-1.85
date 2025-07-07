@@ -17,7 +17,7 @@
 //  macOS helper: bring the Irrlicht window to front and return Retina scale
 // -----------------------------------------------------------------------------
 
-float gRetinaScale = 0.5f;
+static float gRetinaScale = 1.0f;
 
 static float irrBringWindowToFrontAndGetScale(NSWindow* win)
 {
@@ -34,6 +34,7 @@ static float irrBringWindowToFrontAndGetScale(NSWindow* win)
     [win orderFrontRegardless];
 
     gRetinaScale = win.backingScaleFactor;
+
     // Retina backing scale
     return win.backingScaleFactor ?: 1.0f;
 }
@@ -653,6 +654,7 @@ bool CIrrDeviceMacOSX::createWindow()
 				NSBackingStoreType type = (CreationParams.DriverType == video::EDT_OPENGL) ? NSBackingStoreBuffered : NSBackingStoreNonretained;
 
 				Window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,CreationParams.WindowSize.Width,CreationParams.WindowSize.Height) styleMask:NSTitledWindowMask+NSClosableWindowMask+NSResizableWindowMask backing:type defer:FALSE];
+                [[Window contentView] setWantsBestResolutionOpenGLSurface:YES];
 			}
 
 			if (Window != NULL || CreationParams.WindowId)
@@ -916,14 +918,14 @@ bool CIrrDeviceMacOSX::createWindow()
 // --- NEW BLOCK -------------------------------------------------------------
 #ifdef __APPLE__
     const float backingScale = irrBringWindowToFrontAndGetScale(Window);
-    if (backingScale > 1.0f)
-    {
-        // Inform the video driver so it uses the real framebuffer size
-        // Driver->OnResize(
-        //     core::dimension2d<u32>(
-        //         static_cast<u32>(Width  * backingScale),
-        //         static_cast<u32>(Height * backingScale)));
-    }
+
+    // Re-express the device size in *pixels*
+    DeviceWidth  = (int)(DeviceWidth  * backingScale);   // ★
+    DeviceHeight = (int)(DeviceHeight * backingScale);   // ★
+
+    // Update the creation params so the driver
+    // initialises its viewport correctly.        // ★
+    CreationParams.WindowSize.set(DeviceWidth, DeviceHeight);
 #endif
 // ---------------------------------------------------------------------------
 
@@ -934,8 +936,19 @@ bool CIrrDeviceMacOSX::createWindow()
 void CIrrDeviceMacOSX::setResize(int width, int height)
 {
 	// set new window size
-	DeviceWidth = width;
-	DeviceHeight = height;
+    // logical → pixel (handles Retina & standard)
+    if (Window)
+    {
+        NSRect backing = [[Window contentView] convertRectToBacking:
+                          NSMakeRect(0,0,width,height)];
+        DeviceWidth  = (int)backing.size.width;
+        DeviceHeight = (int)backing.size.height;
+    }
+    else
+    {
+        DeviceWidth  = (int)(width  * gRetinaScale);
+        DeviceHeight = (int)(height * gRetinaScale);
+    }
 
 	// update the size of the opengl rendering context
 	if(OGLContext);
@@ -945,7 +958,11 @@ void CIrrDeviceMacOSX::setResize(int width, int height)
 	if (Window)
 	{
 		NSRect driverFrame = [Window contentRectForFrameRect:[Window frame]];
-		getVideoDriver()->OnResize(core::dimension2d<u32>( (s32)driverFrame.size.width, (s32)driverFrame.size.height));
+        // backing-space viewport                                  // ★
+        NSRect back = [[Window contentView] convertRectToBacking:
+                       [Window contentRectForFrameRect:[Window frame]]];
+        getVideoDriver()->OnResize(core::dimension2d<u32>(
+            (s32)back.size.width, (s32)back.size.height));        // ★
 	}
 	else
 		getVideoDriver()->OnResize(core::dimension2d<u32>( (s32)width, (s32)height));
