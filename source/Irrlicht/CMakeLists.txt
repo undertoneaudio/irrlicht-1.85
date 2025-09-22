@@ -3,6 +3,21 @@ cmake_minimum_required(VERSION 3.16)
 # ─────────────── Irrlicht core library ─────────────────────────
 add_library(irrlicht)
 
+# Use a pre-C++17 GNU dialect for Irrlicht only (avoids __STRICT_ANSI__ and register errors)
+set_target_properties(irrlicht PROPERTIES
+  CXX_STANDARD 14
+  CXX_STANDARD_REQUIRED OFF
+  CXX_EXTENSIONS ON)           # gnu++14 instead of c++14
+
+# Make sure ObjC++ files (.mm) also get the same -std (some CMake gens won’t apply CXX_STANDARD to OBJCXX)
+target_compile_options(irrlicht PRIVATE
+  $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:OBJCXX>>:-std=gnu++14>)
+
+# Safety net: if some toolchain still defines __STRICT_ANSI__, just undefine it for Irrlicht
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
+  target_compile_options(irrlicht PRIVATE -U__STRICT_ANSI__)
+endif()
+
 # 1️⃣ collect every source ----------------------------------------------------
 file(GLOB_RECURSE IRR_SOURCES CONFIGURE_DEPENDS "*.cpp" "*.c" "*.mm")
 
@@ -16,11 +31,81 @@ list(FILTER IRR_SOURCES EXCLUDE
      REGEX ".*/jpeglib/jmem(ansi|dos|mac|name)\\.c$")
 list(FILTER IRR_SOURCES EXCLUDE REGEX ".*/zlib/gz.*\\.c$")  # drop gzip helpers
 
+# platform specific cleanup
+if(APPLE)
+    list(FILTER IRR_SOURCES EXCLUDE REGEX ".*/CD3D.*\\.cpp$")          # D3D9/11 stuff
+    list(FILTER IRR_SOURCES EXCLUDE REGEX ".*/CIrrDeviceWin32\\.cpp$") # Win32 device
+elseif(WIN32)
+    list(FILTER IRR_SOURCES EXCLUDE REGEX ".*/CIrrDeviceMacOSX\\.mm$")
+endif()
+
 target_sources(irrlicht PRIVATE ${IRR_SOURCES})
 
+# --- Suppress selected warnings for Irrlicht (only) -------------------------
+include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
+
+# Helper: add a flag if the current compiler supports it
+function(_irr_add_flag_if_supported tgt lang flag)
+  # Make a unique, cache-friendly var name for the probe
+  string(MAKE_C_IDENTIFIER "${tgt}_${lang}_${flag}" _var)
+  if(${lang} STREQUAL C)
+    check_c_compiler_flag("${flag}" ${_var})
+    if(${_var})
+      target_compile_options(${tgt} PRIVATE $<$<COMPILE_LANGUAGE:C>:${flag}>)
+    endif()
+  else() # treat CXX and OBJCXX together (same compiler front-end on Apple)
+    check_cxx_compiler_flag("${flag}" ${_var})
+    if(${_var})
+      target_compile_options(${tgt} PRIVATE
+        $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:OBJCXX>>:${flag}>)
+    endif()
+  endif()
+endfunction()
+
+# The warnings you asked to silence
+set(_irr_flags_c
+  -Wno-unused-parameter
+  -Wno-unused-function
+  -Wno-deprecated-declarations
+)
+
+set(_irr_flags_cxx
+  -Wno-unused-parameter
+  -Wno-unused-function
+  -Wno-unused-private-field
+  -Wno-deprecated-declarations
+  -Wno-deprecated-copy
+  -Wno-deprecated-copy-with-user-provided-copy
+)
+
+foreach(f IN LISTS _irr_flags_c)
+  _irr_add_flag_if_supported(irrlicht C   "${f}")
+endforeach()
+
+foreach(f IN LISTS _irr_flags_cxx)
+  _irr_add_flag_if_supported(irrlicht CXX "${f}")   # applies to CXX & OBJCXX
+endforeach()
+
+# macOS OpenGL deprecation messages (headers)
+if(APPLE)
+  target_compile_definitions(irrlicht PRIVATE GL_SILENCE_DEPRECATION=1)
+endif()
+
+# Optional: MSVC equivalents (no probing needed)
+if(MSVC)
+  target_compile_options(irrlicht PRIVATE
+    /wd4100   # unreferenced formal parameter
+    /wd4505   # unreferenced (local) function removed
+    /wd4996   # deprecated declarations
+  )
+  # MSVC doesn't have direct equivalents for -Wunused-private-field or
+  # -Wdeprecated-copy(-with-user-provided-copy); there isn't a precise switch.
+endif()
+
 # ───────────── include paths -------------------------------------------------
-target_include_directories(irrlicht
-    PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+target_include_directories(irrlicht SYSTEM
+    PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
             $<INSTALL_INTERFACE:include/irrlicht>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}      # CIrrDeviceStub.h etc.
             ${CMAKE_CURRENT_SOURCE_DIR}/zlib
@@ -42,10 +127,10 @@ if(APPLE)
         "-framework OpenGL"
         "-framework IOKit"
         "-framework ApplicationServices")
-
 elseif(MSVC)
     target_compile_options(irrlicht PRIVATE /W4 /MP)
-
+elseif(WIN32)
+    target_link_libraries(irrlicht PUBLIC gdi32 opengl32 winmm)
 else()
     target_compile_options(irrlicht PRIVATE
         -Wall -pipe -fno-exceptions -fno-rtti -fstrict-aliasing)
@@ -54,9 +139,7 @@ else()
     target_link_libraries(irrlicht PUBLIC OpenGL::GL X11::X11 X11::Xxf86vm)
 endif()
 
-if(WIN32)
-    target_link_libraries(irrlicht PUBLIC gdi32 opengl32 winmm)
-endif()
+
 
 # ───────────── output name & versioning --------------------------------------
 set_target_properties(irrlicht PROPERTIES
