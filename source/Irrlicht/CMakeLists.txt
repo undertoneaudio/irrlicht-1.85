@@ -134,9 +134,24 @@ elseif(WIN32)
 else()
     target_compile_options(irrlicht PRIVATE
         -Wall -pipe -fno-exceptions -fno-rtti -fstrict-aliasing)
-    find_package(OpenGL REQUIRED)
-    find_package(X11    REQUIRED COMPONENTS X11 Xxf86vm)
-    target_link_libraries(irrlicht PUBLIC OpenGL::GL X11::X11 X11::Xxf86vm)
+
+    find_package(PkgConfig REQUIRED)
+
+    pkg_check_modules(GL_PC REQUIRED gl)
+    pkg_check_modules(X11_PC REQUIRED x11)
+    pkg_check_modules(XXF86VM_PC REQUIRED xxf86vm)
+
+    target_include_directories(irrlicht PUBLIC
+        ${X11_PC_INCLUDE_DIRS}
+        ${XXF86VM_PC_INCLUDE_DIRS}
+        ${GL_PC_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(irrlicht PUBLIC
+        ${X11_PC_LINK_LIBRARIES}
+        ${XXF86VM_PC_LINK_LIBRARIES}
+        ${GL_PC_LINK_LIBRARIES}
+        )
 endif()
 
 
