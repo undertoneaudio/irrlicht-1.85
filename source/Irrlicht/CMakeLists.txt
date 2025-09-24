@@ -37,6 +37,8 @@ if(APPLE)
     list(FILTER IRR_SOURCES EXCLUDE REGEX ".*/CIrrDeviceWin32\\.cpp$") # Win32 device
 elseif(WIN32)
     list(FILTER IRR_SOURCES EXCLUDE REGEX ".*/CIrrDeviceMacOSX\\.mm$")
+else()
+    list(FILTER IRR_SOURCES EXCLUDE REGEX ".*/MacOSX/.*")
 endif()
 
 target_sources(irrlicht PRIVATE ${IRR_SOURCES})
