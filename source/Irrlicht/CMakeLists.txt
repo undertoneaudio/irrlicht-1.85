@@ -44,50 +44,58 @@ endif()
 target_sources(irrlicht PRIVATE ${IRR_SOURCES})
 
 # --- Suppress selected warnings for Irrlicht (only) -------------------------
-include(CheckCCompilerFlag)
-include(CheckCXXCompilerFlag)
-
-# Helper: add a flag if the current compiler supports it
-function(_irr_add_flag_if_supported tgt lang flag)
-  # Make a unique, cache-friendly var name for the probe
-  string(MAKE_C_IDENTIFIER "${tgt}_${lang}_${flag}" _var)
-  if(${lang} STREQUAL C)
-    check_c_compiler_flag("${flag}" ${_var})
-    if(${_var})
-      target_compile_options(${tgt} PRIVATE $<$<COMPILE_LANGUAGE:C>:${flag}>)
-    endif()
-  else() # treat CXX and OBJCXX together (same compiler front-end on Apple)
-    check_cxx_compiler_flag("${flag}" ${_var})
-    if(${_var})
-      target_compile_options(${tgt} PRIVATE
-        $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:OBJCXX>>:${flag}>)
-    endif()
+if(IRRLICHT_SUPPRESS_WARNINGS)
+  if(MSVC)
+    target_compile_options(irrlicht PRIVATE /w)
+  else()
+    target_compile_options(irrlicht PRIVATE
+      $<$<COMPILE_LANGUAGE:C>:-w>
+      $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:OBJCXX>>:-w>)
   endif()
-endfunction()
+else()
+  include(CheckCCompilerFlag)
+  include(CheckCXXCompilerFlag)
 
-# The warnings you asked to silence
-set(_irr_flags_c
-  -Wno-unused-parameter
-  -Wno-unused-function
-  -Wno-deprecated-declarations
-)
+  # Helper: add a flag if the current compiler supports it
+  function(_irr_add_flag_if_supported tgt lang flag)
+    string(MAKE_C_IDENTIFIER "${tgt}_${lang}_${flag}" _var)
+    if(${lang} STREQUAL C)
+      check_c_compiler_flag("${flag}" ${_var})
+      if(${_var})
+        target_compile_options(${tgt} PRIVATE $<$<COMPILE_LANGUAGE:C>:${flag}>)
+      endif()
+    else()
+      check_cxx_compiler_flag("${flag}" ${_var})
+      if(${_var})
+        target_compile_options(${tgt} PRIVATE
+          $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:OBJCXX>>:${flag}>)
+      endif()
+    endif()
+  endfunction()
 
-set(_irr_flags_cxx
-  -Wno-unused-parameter
-  -Wno-unused-function
-  -Wno-unused-private-field
-  -Wno-deprecated-declarations
-  -Wno-deprecated-copy
-  -Wno-deprecated-copy-with-user-provided-copy
-)
+  set(_irr_flags_c
+    -Wno-unused-parameter
+    -Wno-unused-function
+    -Wno-deprecated-declarations
+  )
 
-foreach(f IN LISTS _irr_flags_c)
-  _irr_add_flag_if_supported(irrlicht C   "${f}")
-endforeach()
+  set(_irr_flags_cxx
+    -Wno-unused-parameter
+    -Wno-unused-function
+    -Wno-unused-private-field
+    -Wno-deprecated-declarations
+    -Wno-deprecated-copy
+    -Wno-deprecated-copy-with-user-provided-copy
+  )
 
-foreach(f IN LISTS _irr_flags_cxx)
-  _irr_add_flag_if_supported(irrlicht CXX "${f}")   # applies to CXX & OBJCXX
-endforeach()
+  foreach(f IN LISTS _irr_flags_c)
+    _irr_add_flag_if_supported(irrlicht C   "${f}")
+  endforeach()
+
+  foreach(f IN LISTS _irr_flags_cxx)
+    _irr_add_flag_if_supported(irrlicht CXX "${f}")
+  endforeach()
+endif()
 
 # macOS OpenGL deprecation messages (headers)
 if(APPLE)

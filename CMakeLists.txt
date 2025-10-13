@@ -8,8 +8,9 @@ project(Irrlicht
         LANGUAGES C CXX OBJCXX)
 
 # Options
-option(BUILD_SHARED_LIBS     "Build Irrlicht as a shared library" OFF)
-option(IRR_BUILD_EXAMPLES    "Build examples"                     ON)
+option(BUILD_SHARED_LIBS     "Build Irrlicht as a shared library"       OFF)
+option(IRR_BUILD_EXAMPLES    "Build examples"                           ON)
+option(IRRLICHT_SUPPRESS_WARNINGS "Suppress Irrlicht build warnings"    OFF)
 
 # Library
 add_subdirectory(source/Irrlicht)
