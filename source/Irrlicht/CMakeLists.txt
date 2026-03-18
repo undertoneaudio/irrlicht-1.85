@@ -127,9 +127,6 @@ target_compile_definitions(irrlicht
     PRIVATE IRRLICHT_EXPORTS=1 PNG_ARM_NEON_OPT=0)
 
 if(APPLE)
-    target_compile_options(irrlicht
-        PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-x objective-c++>)
-
     # Frameworks as one-piece arguments so CMake never turns them into -lXXX
     target_link_libraries(irrlicht PUBLIC
         "-framework Cocoa"
