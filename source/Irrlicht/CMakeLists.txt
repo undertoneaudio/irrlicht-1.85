@@ -43,6 +43,16 @@ endif()
 
 target_sources(irrlicht PRIVATE ${IRR_SOURCES})
 
+if(APPLE)
+  # These two .cpp files include the macOS device header, which imports Cocoa.
+  # Keep the rest of Irrlicht as plain C++ and only force Objective-C++ here.
+  set_source_files_properties(
+    "${CMAKE_CURRENT_SOURCE_DIR}/COpenGLDriver.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Irrlicht.cpp"
+    PROPERTIES COMPILE_OPTIONS "-x;objective-c++"
+  )
+endif()
+
 # --- Suppress selected warnings for Irrlicht (only) -------------------------
 if(IRRLICHT_SUPPRESS_WARNINGS)
   if(MSVC)
